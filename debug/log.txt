@@ -1,0 +1,123 @@
+WatermelonDS Switch test entrypoint (Vulkan)
+rom: sdmc:/switch/watermelonds/Golden Sun - Dark Dawn (USA) (En,Es).nds
+build id: c9f8e91d9d57fd42756e9fb8834e68fdbfd9bb8b000000000000000000000000
+cores: 3 granted (mask 0x7), emulation 0, workers 0x6, background -1
+threaded 2D off
+JIT: enabled=1 block=32 fastmem=1 literal=1 branch=1
+clock CPU: 1020.0 MHz
+clock GPU: 307.2 MHz
+clock memory: 1331.2 MHz
+MAC: 00:09:BF:11:22:33
+Inserted cart with game code: BO5E
+Inserted cart with ID: 0000FFC2
+ROM entry: 10000000 00000005
+rom loaded
+Vulkan precompile: retroFiltering=0 retroEnabled=0 preset= source=0 passes=0 prewarm=0
+VulkanDriver: source=static NVK
+VulkanDriver: active=system
+VulkanContext: device 'NVIDIA Tegra X1 (GM20B) (NVK GM20B)' missing optional extension VK_ANDROID_external_memory_android_hardware_buffer; continuing without AndroidHardwareBuffer interop
+VulkanContext: selected 'NVIDIA Tegra X1 (GM20B) (NVK GM20B)' (vendor=0x10de device=0xfe0 adreno=0 mali=0 powervr=0 g52=0 timeline=1 dynamicIndexing=1 nonUniformTextures=0 ahbInterop=0 forceTimelineOff=0 forceDynamicOff=0)
+VulkanOutput: sync path initialized (timeline=1)
+VulkanRuntime[Renderer]: renderer=vulkan profile=faithful pipeline=simple_graphics raster=graphics threaded=1 ringContexts=3 readbackWaitScope=readback-only renderScale=1 outputScale=1 betterPolygons=0 diagFlags=0x00000000
+VulkanRuntime[Capabilities]: swapchain=1 timeline=1 dynamicIndexing=1 nonUniform=0 path=dynamic-uniform forceTimelineOff=0 forceDynamicOff=0
+VulkanRenderer3D: using dynamically-uniform descriptor indexing texture sampling path
+VulkanRenderer3D: loaded pipeline cache (vulkan_pipeline_cache_v4_000010de_00000fe0_06802003_cbf29ce484222325_dynamic-uniform.bin, 340366 bytes)
+VulkanRenderer3D: saved pipeline cache (vulkan_pipeline_cache_v4_000010de_00000fe0_06802003_cbf29ce484222325_dynamic-uniform.bin, 340366 bytes)
+Vulkan host buffer: bytes=196608 cached=1 coherent=0
+VulkanG1: sinEscritura=1 (edgeR3b=0 nieblaR3b=0 densidad=0 clear15=0)
+VulkanOutput: pipeline cache ready (vulkan_output_pipeline_cache_v1_000010de_00000fe0_06802003_1ca4b668dffcba56e1f8cb7a42c191a7_d67714b14aeaa23d.bin, 780550 bytes preloaded, rejected=0)
+VulkanOutput: faithful final specialization subgroup=32 compute=1 subtile=4
+Vulkan prewarm targets: width=256 height=192 contexts=3 elapsed=3.873ms
+vulkan pipelines ready
+Secure area decryption OK
+Game is now booting
+core started, surface 1 attached
+profiler armed (5 ms samples over 600 frames; start frame in profile.on, default 600)
+Vulkan host buffer: bytes=589824 cached=1 coherent=0
+Vulkan host buffer: bytes=196608 cached=1 coherent=0
+VulkanOutput: faithful composition unavailable; frame not submitted
+Vulkan host buffer: bytes=589824 cached=1 coherent=0
+Vulkan host buffer: bytes=196608 cached=1 coherent=0
+[capd] frameId=1 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=00000000 dispB=00000000 preA=0 preB=0 swap=1 cnt=00000000 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=0 npP=0
+VulkanSurfacePresenter: pipeline cache ready (vulkan_presenter_pipeline_cache_v2_000010de_00000fe0_06802003_1ca4b668dffcba56e1f8cb7a42c191a7_0fd643258f62dbc6.bin, 299116 bytes preloaded)
+Vulkan host buffer: bytes=589824 cached=1 coherent=0
+Vulkan host buffer: bytes=196608 cached=1 coherent=0
+[swapev] swap 1->0 act=0 salto=0 vent=01 cnt=00000000 dispA=00000000 preA=1 preB=1
+VulkanGraphics[Triangles]: scale=1 count=2 viewportIntersect=2 nonDegenerate=2 textures=1 first tri pos=(0.000,0.000,65536.000,w=0.000)->(255.938,0.000,65536.000,w=0.000)->(255.938,191.938,65536.000,w=0.000) flags=0x42d2 texDesc=0 texLayer=31 texSize=256x256 texParam=0x52d087fc polyAttr=0x1f00c0 yBounds=0xc00000
+VulkanGraphics[Draws]: polygons=1 opaque=1 needOpaque=0 alphaShadow=0 shadowMask=0 shadow=0 first firstTriangle=0 triangleCount=2 polyAttr=0x1f00c0 flags=0xa0 dispCnt=0x3b alphaRef=0
+VulkanG1: sinEscritura=0 (edgeR3b=1 nieblaR3b=0 densidad=0 clear15=0)
+SwitchPerf: frame=120 total=20.19ms setup=0.56ms upload=1.22ms core=17.16ms tail=1.25ms compose=0.00ms p95=29.86ms
+[capd] frameId=121 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=0001135D dispB=00011B55 preA=0 preB=1 swap=0 cnt=00000000 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+VulkanG1: sinEscritura=1 (edgeR3b=0 nieblaR3b=0 densidad=0 clear15=0)
+SwitchPerf: frame=240 total=21.69ms setup=0.26ms upload=2.04ms core=18.26ms tail=1.13ms compose=0.00ms p95=27.88ms
+[capd] frameId=241 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=00000000 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+VulkanG1: sinEscritura=0 (edgeR3b=0 nieblaR3b=1 densidad=1 clear15=0)
+[swapev] swap 0->1 act=1 salto=0 vent=01 cnt=80330010 dispA=000E025D preA=0 preB=1
+[swapev] swap 1->0 act=1 salto=0 vent=03 cnt=80330010 dispA=000E005D preA=0 preB=1
+[swapev] swap 0->1 act=1 salto=0 vent=07 cnt=80330010 dispA=000E025D preA=0 preB=1
+35.8 fps emulated, 20.5 fps presented (runFrame 27.89 ms), profiler=off
+JIT: 27304 blocks compiled, 1 cache resets, 3395 invalidations in the last 300 frames
+emulation core busy 94% (other cores not queryable here)
+SwitchPerf: frame=360 total=63.62ms setup=0.31ms upload=0.96ms core=61.19ms tail=1.17ms compose=0.00ms p95=76.16ms
+[capd] frameId=361 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=1 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=80330010 bits=02000000 s0=FF s1=FF sP=FF sVeto=0 np=9 npP=1301
+SwitchPerf: frame=480 total=71.53ms setup=0.32ms upload=0.68ms core=69.36ms tail=1.18ms compose=0.00ms p95=76.05ms
+[capd] frameId=481 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=1 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=80330010 bits=02000000 s0=FF s1=FF sP=FF sVeto=0 np=9 npP=1301
+[p6b] reusos=0
+SwitchPerf: frame=600 total=71.57ms setup=0.32ms upload=0.68ms core=69.35ms tail=1.22ms compose=0.00ms p95=75.99ms
+14.0 fps emulated, 13.9 fps presented (runFrame 71.58 ms), profiler=off
+JIT: 158597 blocks compiled, 0 cache resets, 24300 invalidations in the last 300 frames
+emulation core busy 99% (other cores not queryable here)
+profiler started at frame 600
+[capd] frameId=601 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=1 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=80330010 bits=02000000 s0=FF s1=FF sP=FF sVeto=0 np=9 npP=1301
+SwitchPerf: frame=720 total=71.69ms setup=0.32ms upload=0.68ms core=69.51ms tail=1.19ms compose=0.00ms p95=76.21ms
+[capd] frameId=721 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=1 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=80330010 bits=02000000 s0=FF s1=FF sP=FF sVeto=0 np=9 npP=1301
+SwitchPerf: frame=840 total=71.76ms setup=0.32ms upload=0.68ms core=69.57ms tail=1.18ms compose=0.00ms p95=76.58ms
+[capd] frameId=841 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=1 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=80330010 bits=02000000 s0=FF s1=FF sP=FF sVeto=0 np=9 npP=1301
+13.9 fps emulated, 13.9 fps presented (runFrame 71.78 ms), profiler=on
+JIT: 157445 blocks compiled, 0 cache resets, 24288 invalidations in the last 300 frames
+emulation core busy 99% (other cores not queryable here)
+SwitchPerf: frame=960 total=72.09ms setup=0.32ms upload=0.68ms core=69.92ms tail=1.18ms compose=0.00ms p95=76.97ms
+[capd] frameId=961 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=1 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010555 preA=0 preB=1 swap=0 cnt=80330010 bits=02000000 s0=FF s1=FF sP=FF sVeto=0 np=9 npP=1304
+SwitchPerf: frame=1080 total=33.70ms setup=0.26ms upload=1.42ms core=30.87ms tail=1.14ms compose=0.00ms p95=67.23ms
+[capd] frameId=1081 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=00011B5D dispB=00011B55 preA=1 preB=1 swap=0 cnt=00330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=0 npP=0
+VulkanG1: sinEscritura=1 (edgeR3b=0 nieblaR3b=0 densidad=1 clear15=0)
+[p6b] reusos=0
+SwitchPerf: frame=1200 total=26.54ms setup=0.30ms upload=0.41ms core=24.67ms tail=1.16ms compose=0.00ms p95=32.24ms
+25.9 fps emulated, 15.9 fps presented (runFrame 38.59 ms), profiler=on
+JIT: 37990 blocks compiled, 0 cache resets, 7050 invalidations in the last 300 frames
+emulation core busy 98% (other cores not queryable here)
+profile saved (frames 600-1200)
+[capd] frameId=1201 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=00011B5D dispB=00011B55 preA=1 preB=1 swap=0 cnt=00330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=12 npP=2
+SwitchPerf: frame=1320 total=28.04ms setup=0.29ms upload=1.65ms core=24.89ms tail=1.21ms compose=0.00ms p95=29.39ms
+[capd] frameId=1321 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=00011B5D dispB=00011B55 preA=1 preB=1 swap=0 cnt=00330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=62 npP=62
+SwitchPerf: frame=1440 total=27.42ms setup=0.29ms upload=1.56ms core=24.38ms tail=1.19ms compose=0.00ms p95=28.22ms
+[capd] frameId=1441 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=00011B5D dispB=00011B55 preA=1 preB=1 swap=0 cnt=00330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=62 npP=62
+36.1 fps emulated, 17.9 fps presented (runFrame 27.72 ms), profiler=off
+JIT: 779 blocks compiled, 0 cache resets, 0 invalidations in the last 300 frames
+emulation core busy 95% (other cores not queryable here)
+VulkanG1: sinEscritura=0 (edgeR3b=1 nieblaR3b=0 densidad=1 clear15=0)
+SwitchPerf: frame=1560 total=27.64ms setup=0.29ms upload=1.61ms core=24.55ms tail=1.18ms compose=0.00ms p95=28.54ms
+[capd] frameId=1561 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=00011B5D dispB=00011B55 preA=1 preB=1 swap=0 cnt=00330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=62 npP=62
+VulkanG1: sinEscritura=1 (edgeR3b=0 nieblaR3b=0 densidad=1 clear15=0)
+SwitchPerf: frame=1680 total=22.44ms setup=0.18ms upload=2.08ms core=19.07ms tail=1.10ms compose=0.00ms p95=28.59ms
+[capd] frameId=1681 inv=0 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E115D dispB=00010055 preA=0 preB=0 swap=0 cnt=00330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=62 npP=62
+VulkanG1: sinEscritura=0 (edgeR3b=0 nieblaR3b=0 densidad=1 clear15=0)
+VulkanG1: sinEscritura=1 (edgeR3b=0 nieblaR3b=0 densidad=1 clear15=0)
+[p6b] reusos=0
+SwitchPerf: frame=1800 total=18.24ms setup=0.09ms upload=1.94ms core=15.16ms tail=1.05ms compose=0.00ms p95=19.03ms
+45.8 fps emulated, 22.9 fps presented (runFrame 21.82 ms), profiler=off
+JIT: 1333 blocks compiled, 0 cache resets, 322 invalidations in the last 300 frames
+emulation core busy 92% (other cores not queryable here)
+[capd] frameId=1801 inv=1 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E135D dispB=00010055 preA=0 preB=0 swap=0 cnt=C0330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+SwitchPerf: frame=1920 total=18.66ms setup=0.09ms upload=1.93ms core=15.57ms tail=1.07ms compose=0.00ms p95=19.53ms
+[capd] frameId=1921 inv=1 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E135D dispB=00010055 preA=0 preB=0 swap=0 cnt=C0330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+SwitchPerf: frame=2040 total=18.85ms setup=0.09ms upload=1.94ms core=15.77ms tail=1.06ms compose=0.00ms p95=19.57ms
+[capd] frameId=2041 inv=1 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E135D dispB=00010055 preA=0 preB=0 swap=0 cnt=C0330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+52.8 fps emulated, 26.4 fps presented (runFrame 18.91 ms), profiler=off
+JIT: 81 blocks compiled, 0 cache resets, 0 invalidations in the last 300 frames
+emulation core busy 91% (other cores not queryable here)
+SwitchPerf: frame=2160 total=18.92ms setup=0.09ms upload=1.94ms core=15.84ms tail=1.05ms compose=0.00ms p95=19.70ms
+[capd] frameId=2161 inv=1 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E135D dispB=00010055 preA=0 preB=0 swap=0 cnt=C0330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+SwitchPerf: frame=2280 total=19.06ms setup=0.09ms upload=1.93ms core=15.97ms tail=1.06ms compose=0.00ms p95=19.82ms
+[capd] frameId=2281 inv=1 prop=1 val=0 escI=0 esc=1 usable=0 banco=0 act=0 ini0=0 ini1=0 iniA=FFFFFFFF iniB=FFFFFFFF iniO=FFFFFFFF pase=0 m2=0 fr0=0 fr1=0 salto=0 dispA=000E135D dispB=00010055 preA=0 preB=0 swap=0 cnt=C0330010 bits=00000000 s0=FF s1=FF sP=FF sVeto=0 np=1 npP=1
+[p6b] reusos=0

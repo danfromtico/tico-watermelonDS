@@ -1,6 +1,9 @@
 #include "VulkanSurfacePresenter.h"
 
 #include <android/trace.h>
+#if defined(__SWITCH__)
+#include <vulkan/vulkan_vi.h>
+#endif
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -991,6 +994,25 @@ void VulkanSurfacePresenter::destroyTimestampQueryPool(VkQueryPool& queryPool)
     }
 }
 
+namespace
+{
+std::mutex gOverlayDrawCallbackMutex;
+VulkanSurfacePresenter::OverlayDrawCallback gOverlayDrawCallback;
+}
+
+void VulkanSurfacePresenter::setOverlayDrawCallback(OverlayDrawCallback callback)
+{
+    std::lock_guard overlayLock(gOverlayDrawCallbackMutex);
+    gOverlayDrawCallback = std::move(callback);
+}
+
+void VulkanSurfacePresenter::drawOverlay(const OverlayDrawContext& context)
+{
+    std::lock_guard overlayLock(gOverlayDrawCallbackMutex);
+    if (gOverlayDrawCallback)
+        gOverlayDrawCallback(context);
+}
+
 int VulkanSurfacePresenter::attachSurface(ANativeWindow* window, u32 width, u32 height)
 {
     if (!initialized || window == nullptr)
@@ -1005,12 +1027,25 @@ int VulkanSurfacePresenter::attachSurface(ANativeWindow* window, u32 width, u32 
     surfaceState.requestedWidth = width;
     surfaceState.requestedHeight = height;
 
+#if defined(__SWITCH__)
+    // the window is a libnx NWindow; NVK exposes it through VK_NN_vi_surface
+    VkViSurfaceCreateInfoNN surfaceCreateInfo{};
+    surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_VI_SURFACE_CREATE_INFO_NN;
+    surfaceCreateInfo.window = window;
+
+    const auto createViSurface = reinterpret_cast<PFN_vkCreateViSurfaceNN>(
+        vkGetInstanceProcAddr(instance, "vkCreateViSurfaceNN"));
+    if (createViSurface == nullptr
+        || createViSurface(instance, &surfaceCreateInfo, nullptr, &surfaceState.surface) != VK_SUCCESS)
+    {
+#else
     VkAndroidSurfaceCreateInfoKHR surfaceCreateInfo{};
     surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
     surfaceCreateInfo.window = window;
 
     if (vkCreateAndroidSurfaceKHR(instance, &surfaceCreateInfo, nullptr, &surfaceState.surface) != VK_SUCCESS)
     {
+#endif
         ANativeWindow_release(window);
         return 0;
     }
@@ -5687,6 +5722,25 @@ bool VulkanSurfacePresenter::recordSurfaceCommands(
             );
         }
         vkCmdDraw(surfaceState.commandBuffer, drawCall.vertexCount, 1, drawCall.firstVertex, 0);
+    }
+
+    {
+        std::lock_guard overlayLock(gOverlayDrawCallbackMutex);
+        if (gOverlayDrawCallback)
+        {
+            OverlayDrawContext overlayContext{};
+            overlayContext.instance = instance;
+            overlayContext.physicalDevice = physicalDevice;
+            overlayContext.device = device;
+            overlayContext.queue = queue;
+            overlayContext.queueFamilyIndex = queueFamilyIndex;
+            overlayContext.renderPass = surfaceState.renderPass;
+            overlayContext.format = surfaceState.swapchainFormat;
+            overlayContext.extent = surfaceState.extent;
+            overlayContext.imageCount = static_cast<u32>(surfaceState.swapchainImages.size());
+            overlayContext.commandBuffer = surfaceState.commandBuffer;
+            gOverlayDrawCallback(overlayContext);
+        }
     }
 
     vkCmdEndRenderPass(surfaceState.commandBuffer);

@@ -161,6 +161,29 @@ public:
     bool init();
     void shutdown();
 
+    // Lets a frontend draw on top of the presented frame (the tico overlay on
+    // the Switch). The callback runs on the presentation thread inside the
+    // presenter's render pass, after the screens have been drawn.
+    struct OverlayDrawContext
+    {
+        VkInstance instance;
+        VkPhysicalDevice physicalDevice;
+        VkDevice device;
+        VkQueue queue;
+        u32 queueFamilyIndex;
+        VkRenderPass renderPass;
+        VkFormat format;
+        VkExtent2D extent;
+        u32 imageCount;
+        VkCommandBuffer commandBuffer;
+    };
+    using OverlayDrawCallback = std::function<void(const OverlayDrawContext&)>;
+    // Passing nullptr removes the callback; it does not return while a draw is in progress.
+    static void setOverlayDrawCallback(OverlayDrawCallback callback);
+    // Runs the registered overlay callback, if any. For presenters other than
+    // this one (the Switch build's software-renderer presenter).
+    static void drawOverlay(const OverlayDrawContext& context);
+
     int attachSurface(ANativeWindow* window, u32 width, u32 height);
     bool resizeSurface(int surfaceId, u32 width, u32 height);
     bool configureSurface(int surfaceId, const VulkanSurfaceConfig& config, const VulkanBackgroundImage& backgroundImage);

@@ -146,6 +146,14 @@ public:
         u64 expectedWaitEpoch,
         u64 timeoutNs);
     void cancelVulkanPresentationWaits() noexcept;
+    // While set, presenting with no new frame queued shows the previous frame
+    // again instead of reporting NoProduct. Frontends that draw their own UI
+    // over a paused game use this to keep the screen refreshing.
+    void setVulkanRepresentPreviousFrameWhenIdle(bool enabled) noexcept
+    {
+        vulkanRepresentPreviousFrameWhenIdle.store(enabled, std::memory_order_release);
+    }
+    std::atomic<bool> vulkanRepresentPreviousFrameWhenIdle{false};
     struct CaptureSourceStaging
     {
         bool filled = false;

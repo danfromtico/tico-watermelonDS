@@ -4443,9 +4443,12 @@ VulkanPresentationResult MelonInstance::presentVulkanFrame(
         if (vulkanQ4MeasureEnabled)
             vulkanQ4PumpCandidateWindow.Add(PerfNowNs() - q4CandStartNs);
         const auto getFastForwardTransitionPreviousFrame = [&]() -> Frame* {
-            if (!fastForwardActive
-                || renderScale <= 1
-                || vulkanFastForwardPreviousFrameFallbackFrames <= 0)
+            const bool representWhenIdle =
+                vulkanRepresentPreviousFrameWhenIdle.load(std::memory_order_acquire);
+            if (!representWhenIdle
+                && (!fastForwardActive
+                    || renderScale <= 1
+                    || vulkanFastForwardPreviousFrameFallbackFrames <= 0))
                 return nullptr;
 
             FrameQueuePolicy previousFramePolicy = candidateQueuePolicy;
@@ -4454,7 +4457,8 @@ VulkanPresentationResult MelonInstance::presentVulkanFrame(
             if (previousFrame == nullptr || !vulkanOutput->isFrameReady(previousFrame))
                 return nullptr;
 
-            vulkanFastForwardPreviousFrameFallbackFrames--;
+            if (!representWhenIdle)
+                vulkanFastForwardPreviousFrameFallbackFrames--;
             return previousFrame;
         };
         if (frame == nullptr)
