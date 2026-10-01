@@ -185,6 +185,10 @@ private:
 #if defined(__SWITCH__)
     VirtmemReservation* FastMem9Reservation, *FastMem7Reservation;
     u8* MemoryBaseCodeMem;
+    u8* MemoryBaseHeap = nullptr;
+public:
+    static void ExceptionHandler(ThreadExceptionDump* ctx);
+private:
 #elif defined(_WIN32)
     struct VirtmemPlaceholder
     {

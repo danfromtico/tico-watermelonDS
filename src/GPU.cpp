@@ -163,6 +163,8 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     NDS.RegisterEventFuncs(Event_DisplayFIFO, this, {MakeEventThunk(GPU, DisplayFIFO)});
 
     InitFramebuffers();
+
+    SetThreaded2D(DefaultThreaded2D);
 }
 
 u64 GPU::MintFaithfulCaptureProductId() noexcept
@@ -925,6 +927,7 @@ void GPU::InvalidateFaithfulMainRamCaptureRange(
 void GPU::InvalidateFaithfulMainRamCaptureRangeForCpuAddress(
     u32 cpu, u32 addr, u32 byteCount) noexcept
 {
+    Sync2D();
     if (!HasFaithfulMainRamCaptureTags())
         return;
     u32 byteOffset = 0u;
@@ -1078,6 +1081,7 @@ bool GPU::ResolveFaithfulDmaLineageRange(
 bool GPU::ShouldDeferFaithfulDmaMainRamInvalidation(
     u32 cpu, u32 addr, u32 byteCount) const noexcept
 {
+    Sync2D();
     if (!FaithfulDmaLineageBatchActive || byteCount == 0u
         || FaithfulDmaLineageDestination.Kind
             != FaithfulDmaLineageStorageKind::MainRam)
@@ -1100,6 +1104,7 @@ bool GPU::BeginFaithfulDmaLineageBatch(
     u32 cpu, u32 sourceAddress, u32 destinationAddress,
     u32 byteCount) noexcept
 {
+    Sync2D();
     if (FaithfulDmaLineageBatchActive || byteCount < 2u
         || !HasFaithfulCapturePhysicalTags())
     {
@@ -1154,6 +1159,7 @@ bool GPU::BeginFaithfulDmaLineageBatch(
 void GPU::FinishFaithfulDmaLineageBatch(
     u32 transferredByteCount) noexcept
 {
+    Sync2D();
     if (!FaithfulDmaLineageBatchActive)
         return;
 
@@ -1313,6 +1319,7 @@ bool GPU::GetFaithfulCaptureTagForCpuAddress(
     u32 cpu, u32 addr, FaithfulVramCaptureTag& outTag,
     u8& outStorageBank) const noexcept
 {
+    Sync2D();
     if (!HasFaithfulCapturePhysicalTags())
     {
         outTag = {};
@@ -1348,6 +1355,7 @@ bool GPU::GetFaithfulCaptureTagForCpuAddress(
 void GPU::PropagateFaithfulCaptureTagForDmaDestination(
     u32 cpu, u32 addr, const FaithfulVramCaptureTag& tag) noexcept
 {
+    Sync2D();
     if (!FaithfulVramCaptureTrackingEnabled)
         return;
     u32 mainRamByteOffset = 0u;
@@ -1596,8 +1604,148 @@ bool GPU::GetFaithfulVramCaptureTagForBBGAddress(
         == FaithfulVramCaptureTagResolution::Exact;
 }
 
+namespace
+{
+thread_local bool sIsRender2DWorker = false;
+}
+
+bool GPU::IsRender2DWorkerThread() noexcept
+{
+    return sIsRender2DWorker;
+}
+
+// One visible line's 2D work, in the order the emulation thread used to do it.
+void GPU::DrawScanline2D(u32 line, u32 vcount) noexcept
+{
+    GPU2D_Renderer->DrawScanline(line, &GPU2D_A);
+    GPU2D_Renderer->DrawScanline(line, &GPU2D_B);
+    if (line < 191)
+    {
+        GPU2D_Renderer->DrawSprites(line + 1, &GPU2D_A);
+        GPU2D_Renderer->DrawSprites(line + 1, &GPU2D_B);
+    }
+    GPU2D_A.CheckWindows(vcount);
+    GPU2D_B.CheckWindows(vcount);
+}
+
+void GPU::SetThreaded2D(bool enabled) noexcept
+{
+    if (enabled == Threaded2D)
+        return;
+
+    if (!enabled)
+    {
+        Sync2D();
+        Threaded2D = false;
+        StopRender2DWorker();
+        return;
+    }
+
+    Render2DPosted.store(0, std::memory_order_relaxed);
+    Render2DDone.store(0, std::memory_order_relaxed);
+    Render2DExit.store(false, std::memory_order_relaxed);
+    Render2DWorker = std::thread([this] { Render2DWorkerLoop(); });
+    Threaded2D = true;
+}
+
+void GPU::StopRender2DWorker() noexcept
+{
+    if (!Render2DWorker.joinable())
+        return;
+    {
+        std::lock_guard lock(Render2DMutex);
+        Render2DExit.store(true, std::memory_order_release);
+    }
+    Render2DWake.notify_all();
+    Render2DWorker.join();
+}
+
+void GPU::PostRender2DLine(u32 line, u32 vcount) noexcept
+{
+    const u32 posted = Render2DPosted.load(std::memory_order_relaxed);
+    // keep the queue bounded; the worker is normally at most a line behind
+    while (posted - Render2DDone.load(std::memory_order_acquire) >= Render2DQueueSize)
+        std::this_thread::yield();
+
+    Render2DQueue[posted % Render2DQueueSize] = (vcount << 16) | line;
+    Render2DPosted.store(posted + 1, std::memory_order_release);
+
+    if (Render2DSleeping.load(std::memory_order_acquire))
+    {
+        std::lock_guard lock(Render2DMutex);
+        Render2DWake.notify_one();
+    }
+}
+
+void GPU::WaitRender2D() const noexcept
+{
+    const u32 target = Render2DPosted.load(std::memory_order_relaxed);
+    while (Render2DDone.load(std::memory_order_acquire) != target)
+    {
+        if (Render2DSleeping.load(std::memory_order_acquire))
+        {
+            std::lock_guard lock(Render2DMutex);
+            Render2DWake.notify_one();
+        }
+#if defined(__aarch64__)
+        asm volatile("yield");
+#endif
+    }
+}
+
+void GPU::Render2DWorkerLoop() noexcept
+{
+    sIsRender2DWorker = true;
+    if (Render2DWorkerInit)
+        Render2DWorkerInit();
+
+    // Lines arrive about every 60 microseconds while the screen is drawn.
+    // Spinning that long is far cheaper than a kernel wakeup per line; the
+    // worker only sleeps over VBlank and pauses.
+    constexpr u64 kSpinUs = 300;
+
+    u32 done = Render2DDone.load(std::memory_order_relaxed);
+    while (!Render2DExit.load(std::memory_order_acquire))
+    {
+        if (done != Render2DPosted.load(std::memory_order_acquire))
+        {
+            const u32 entry = Render2DQueue[done % Render2DQueueSize];
+            DrawScanline2D(entry & 0xFFFF, entry >> 16);
+            done++;
+            Render2DDone.store(done, std::memory_order_release);
+            continue;
+        }
+
+        const u64 spinStart = Platform::GetUSCount();
+        bool gotWork = false;
+        while (Platform::GetUSCount() - spinStart < kSpinUs)
+        {
+            if (done != Render2DPosted.load(std::memory_order_acquire)
+                || Render2DExit.load(std::memory_order_acquire))
+            {
+                gotWork = true;
+                break;
+            }
+#if defined(__aarch64__)
+            asm volatile("yield");
+#endif
+        }
+        if (gotWork)
+            continue;
+
+        std::unique_lock lock(Render2DMutex);
+        Render2DSleeping.store(true, std::memory_order_release);
+        Render2DWake.wait(lock, [&] {
+            return done != Render2DPosted.load(std::memory_order_acquire)
+                || Render2DExit.load(std::memory_order_acquire);
+        });
+        Render2DSleeping.store(false, std::memory_order_release);
+    }
+}
+
 GPU::~GPU() noexcept
 {
+    StopRender2DWorker();
 
     ClearFaithfulCaptureTags();
 
@@ -1640,6 +1788,7 @@ void GPU::ResetVRAMCache() noexcept
 
 void GPU::Reset() noexcept
 {
+    Sync2D();
     VCount = 0;
     NextVCount = -1;
     TotalScanlines = 0;
@@ -1726,6 +1875,7 @@ void GPU::Reset() noexcept
 
 void GPU::Stop() noexcept
 {
+    Sync2D();
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
@@ -1742,6 +1892,7 @@ void GPU::Stop() noexcept
 
 void GPU::DoSavestate(Savestate* file) noexcept
 {
+    Sync2D();
     file->Section("GPUG");
 
     file->Var16(&VCount);
@@ -1845,6 +1996,7 @@ void GPU::AssignFramebuffers() noexcept
 
 void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
+    Sync2D();
     if (renderer == nullptr)
         GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>());
     else
@@ -2416,6 +2568,7 @@ void GPU::SetPowerCnt(u32 val) noexcept
 
 void GPU::DisplayFIFO(u32 x) noexcept
 {
+    Sync2D();
     // sample the FIFO
     // as this starts 16 cycles (~3 pixels) before display start,
     // we aren't aligned to the 8-pixel grid
@@ -2461,7 +2614,13 @@ void GPU::StartHBlank(u32 line) noexcept
                     sVuelcoFotograma, sVuelcoSwapAsignado, FrontBuffer);
         // draw
         // note: this should start 48 cycles after the scanline start
-        if (line < 192)
+        if (Threaded2D && line < 192)
+        {
+            // drawing, the next line's sprites and the window update run on
+            // the worker in this order; see DrawScanline2D
+            PostRender2DLine(line, VCount);
+        }
+        else if (line < 192)
         {
             const bool measureStructured2D = ShouldMeasureStructured2D(*this);
             const u64 drawAStartNs = measureStructured2D ? PerfNowNs() : 0;
@@ -2478,7 +2637,7 @@ void GPU::StartHBlank(u32 line) noexcept
         }
 
         // sprites are pre-rendered one scanline in advance
-        if (line < 191)
+        if (!Threaded2D && line < 191)
         {
             const bool measureStructured2D = ShouldMeasureStructured2D(*this);
             const u64 spriteAStartNs = measureStructured2D ? PerfNowNs() : 0;
@@ -2522,6 +2681,7 @@ void GPU::StartHBlank(u32 line) noexcept
     }
     else if (VCount == 262)
     {
+        Sync2D();
         GPU2D_Renderer->DrawSprites(0, &GPU2D_A);
         GPU2D_Renderer->DrawSprites(0, &GPU2D_B);
     }
@@ -2537,6 +2697,7 @@ void GPU::StartHBlank(u32 line) noexcept
 
 void GPU::FinishFrame(u32 lines) noexcept
 {
+    Sync2D();
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
 
@@ -2576,6 +2737,10 @@ void GPU::BlankFrame() noexcept
 
 void GPU::StartScanline(u32 line) noexcept
 {
+    // VBlank and the frame swap read everything the 2D worker writes
+    if (line >= 192 || line == 0)
+        Sync2D();
+
     if (line == 0)
         VCount = 0;
     else if (NextVCount != 0xFFFFFFFF)
@@ -2606,8 +2771,12 @@ void GPU::StartScanline(u32 line) noexcept
     else
         DispStat[1] &= ~(1<<2);
 
-    GPU2D_A.CheckWindows(VCount);
-    GPU2D_B.CheckWindows(VCount);
+    if (!(Threaded2D && VCount < 192 && line < 192))
+    {
+        Sync2D();
+        GPU2D_A.CheckWindows(VCount);
+        GPU2D_B.CheckWindows(VCount);
+    }
 
     if (VCount >= 2 && VCount < 194)
         NDS.CheckDMAs(0, 0x03);
@@ -2618,6 +2787,7 @@ void GPU::StartScanline(u32 line) noexcept
     {
         if (line == 0)
         {
+            Sync2D();
             GPU2D_Renderer->VBlankEnd(&GPU2D_A, &GPU2D_B);
             GPU2D_A.VBlankEnd();
             GPU2D_B.VBlankEnd();

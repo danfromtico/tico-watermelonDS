@@ -559,6 +559,7 @@ void ARMJIT::SetFastMemory(bool enabled) noexcept
 
 void ARMJIT::CompileBlock(ARM* cpu) noexcept
 {
+    JitStatCompiledBlocks.fetch_add(1, std::memory_order_relaxed);
     bool thumb = cpu->CPSR & 0x20;
 
     u32 blockAddr = cpu->R[15] - (thumb ? 2 : 4);
@@ -966,6 +967,7 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
 void ARMJIT::InvalidateByAddr(u32 localAddr) noexcept
 {
     JIT_DEBUGPRINT("invalidating by addr %x\n", localAddr);
+    JitStatInvalidations.fetch_add(1, std::memory_order_relaxed);
 
     AddressRange* region = CodeMemRegions[localAddr >> 27];
     AddressRange* range = &region[(localAddr & 0x7FFFFFF) / 512];
@@ -1141,6 +1143,7 @@ template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWR
 void ARMJIT::ResetBlockCache() noexcept
 {
     Log(LogLevel::Debug, "Resetting JIT block cache...\n");
+    JitStatCacheResets.fetch_add(1, std::memory_order_relaxed);
 
     // could be replace through a function which only resets
     // the permissions but we're too lazy

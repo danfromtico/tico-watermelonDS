@@ -20,7 +20,11 @@
 #define GPU_H
 
 #include <array>
+#include <atomic>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <unordered_map>
 
 #include "GPU2D.h"
@@ -98,6 +102,36 @@ public:
     void Reset() noexcept;
     void Stop() noexcept;
 
+    // Threaded 2D: each visible scanline's 2D drawing runs on a worker thread
+    // while emulation continues. Anything the 2D renderer reads (palette, OAM,
+    // VRAM, display registers, capture tracking) calls Sync2D() before being
+    // touched from the emulation side, which waits for the queued lines to be
+    // drawn. Off by default; a frontend turns it on with SetThreaded2D.
+    void SetThreaded2D(bool enabled) noexcept;
+    // what a newly created GPU starts with; frontends set it before booting
+    static inline bool DefaultThreaded2D = false;
+    // called on the 2D worker thread when it starts, so the frontend can
+    // choose its core and priority
+    static inline void (*Render2DWorkerInit)() = nullptr;
+    [[nodiscard]] bool IsThreaded2D() const noexcept { return Threaded2D; }
+    void Sync2D() const noexcept
+    {
+        if (Threaded2D && !IsRender2DWorkerThread()
+            && Render2DDone.load(std::memory_order_acquire) != Render2DPosted.load(std::memory_order_relaxed))
+            WaitRender2D();
+    }
+    // The 2D registers of both engines and the shared display ones (POWCNT,
+    // VRAMCNT, DISPCAPCNT, master brightness). DISPSTAT and VCOUNT are left
+    // out: games poll them constantly and the 2D renderer never reads them.
+    static constexpr bool Is2DRegister(u32 addr) noexcept
+    {
+        const u32 offset = addr & 0x00FFFFFF;
+        return (offset < 0x70 && (offset < 0x04 || offset >= 0x08))
+            || (offset >= 0x1000 && offset < 0x1070)
+            || (offset >= 0x240 && offset < 0x24A)
+            || (offset >= 0x304 && offset < 0x308);
+    }
+
     void DoSavestate(Savestate* file) noexcept;
 
     /// Sets the active renderer to the renderer given in the provided pointer.
@@ -130,12 +164,14 @@ public:
 
     [[nodiscard]] bool HasFaithfulCapturePhysicalTags() const noexcept
     {
+        Sync2D();
         return FaithfulVramCaptureTrackingEnabled
             && (FaithfulVramTotalValidTagCount != 0u
                 || FaithfulMainRamTaggedPageCount != 0u);
     }
     [[nodiscard]] bool HasFaithfulMainRamCaptureTags() const noexcept
     {
+        Sync2D();
         return FaithfulVramCaptureTrackingEnabled
             && FaithfulMainRamTaggedPageCount != 0u;
     }
@@ -797,6 +833,24 @@ public:
 
     bool BancoFueTextura[4] = {false, false, false, false};
 private:
+    static bool IsRender2DWorkerThread() noexcept;
+    void WaitRender2D() const noexcept;
+    void Render2DWorkerLoop() noexcept;
+    void PostRender2DLine(u32 line, u32 vcount) noexcept;
+    void StopRender2DWorker() noexcept;
+    void DrawScanline2D(u32 line, u32 vcount) noexcept;
+
+    static constexpr u32 Render2DQueueSize = 8;
+    bool Threaded2D = false;
+    std::thread Render2DWorker;
+    std::atomic<u32> Render2DPosted {0};
+    std::atomic<u32> Render2DDone {0};
+    std::array<u32, Render2DQueueSize> Render2DQueue {};
+    std::atomic<bool> Render2DExit {false};
+    std::atomic<bool> Render2DSleeping {false};
+    mutable std::mutex Render2DMutex;
+    mutable std::condition_variable Render2DWake;
+
     static constexpr u32 FaithfulVramSummaryPageHalfwords = 256u;
 
     static constexpr u32 FaithfulMainRamPageShift = 12u;

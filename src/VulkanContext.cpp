@@ -19,7 +19,11 @@ namespace
 {
 constexpr std::array<const char*, 2> kRequiredInstanceExtensions = {
     VK_KHR_SURFACE_EXTENSION_NAME,
+#if defined(__SWITCH__)
+    "VK_NN_vi_surface",
+#else
     VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+#endif
 };
 
 constexpr std::array<const char*, 1> kRequiredDeviceExtensions = {

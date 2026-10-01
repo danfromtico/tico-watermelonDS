@@ -30,6 +30,18 @@ using namespace Arm64Gen;
 
 extern "C" void ARM_Ret();
 
+#ifdef __SWITCH__
+#include <switch.h>
+
+// libnx defines __start__ as an absolute 0, so take the module base from _start instead
+extern "C" void _start();
+
+#define SWITCH_JIT_CHECK(cond, what) \
+    do { if (!(cond)) { melonDS::Platform::Log(melonDS::Platform::LogLevel::Error, "jit code memory: %s failed\n", what); abort(); } } while (0)
+
+static constexpr size_t JitMemSize = melonDS::ARMJIT_Global::CodeMemorySliceSize;
+#endif
+
 namespace melonDS
 {
 
@@ -211,7 +223,7 @@ Compiler::Compiler(melonDS::NDS& nds) : Arm64Gen::ARM64XEmitter(), NDS(nds)
 #ifdef __SWITCH__
     JitRWBase = aligned_alloc(0x1000, JitMemSize);
 
-    JitRXStart = (u8*)&__start__ - JitMemSize - 0x1000;
+    JitRXStart = (u8*)&_start - JitMemSize - 0x1000;
     virtmemLock();
     JitRWStart = virtmemFindAslr(JitMemSize, 0x1000);
     MemoryInfo info = {0};
@@ -231,14 +243,16 @@ Compiler::Compiler(melonDS::NDS& nds) : Arm64Gen::ARM64XEmitter(), NDS(nds)
         }
     }
 
-    assert(JitRXStart != NULL);
+    SWITCH_JIT_CHECK(JitRWBase != NULL, "aligned_alloc");
+    SWITCH_JIT_CHECK(JitRWStart != NULL, "virtmemFindAslr");
+    SWITCH_JIT_CHECK(JitRXStart != NULL, "finding an unmapped region below the module");
 
     bool succeded = R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)JitRXStart, (u64)JitRWBase, JitMemSize));
-    assert(succeded);
+    SWITCH_JIT_CHECK(succeded, "svcMapProcessCodeMemory");
     succeded = R_SUCCEEDED(svcSetProcessMemoryPermission(envGetOwnProcessHandle(), (u64)JitRXStart, JitMemSize, Perm_Rx));
-    assert(succeded);
+    SWITCH_JIT_CHECK(succeded, "svcSetProcessMemoryPermission");
     succeded = R_SUCCEEDED(svcMapProcessMemory(JitRWStart, envGetOwnProcessHandle(), (u64)JitRXStart, JitMemSize));
-    assert(succeded);
+    SWITCH_JIT_CHECK(succeded, "svcMapProcessMemory");
 
     virtmemUnlock();
 

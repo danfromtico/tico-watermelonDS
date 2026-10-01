@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <atomic>
 #include <memory>
 #include "types.h"
 #include "MemConstants.h"
@@ -38,6 +39,11 @@
 
 namespace melonDS
 {
+// JIT activity counters, read by frontends that report them
+inline std::atomic<u64> JitStatCompiledBlocks {0};
+inline std::atomic<u64> JitStatCacheResets {0};
+inline std::atomic<u64> JitStatInvalidations {0};
+
 class ARM;
 
 class JitBlock;

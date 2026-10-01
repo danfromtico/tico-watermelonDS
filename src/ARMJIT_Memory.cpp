@@ -134,28 +134,36 @@ u64 __nx_exception_stack_size = 0x8000;
 
 void __libnx_exception_handler(ThreadExceptionDump* ctx)
 {
-    ARMJIT_Memory::FaultDescription desc;
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
-    desc.EmulatedFaultAddr = (u8*)ctx->far.x - curArea;
-    desc.FaultPC = (u8*)ctx->pc.x;
+    ARMJIT_Memory::ExceptionHandler(ctx);
+}
 
-    u64 integerRegisters[33];
-    memcpy(integerRegisters, &ctx->cpu_gprs[0].x, 8*29);
-    integerRegisters[29] = ctx->fp.x;
-    integerRegisters[30] = ctx->lr.x;
-    integerRegisters[31] = ctx->sp.x;
-    integerRegisters[32] = ctx->pc.x;
+}
 
-    if (Melon::FaultHandler(desc))
+void ARMJIT_Memory::ExceptionHandler(ThreadExceptionDump* ctx)
+{
+    if (NDS::Current)
     {
-        integerRegisters[32] = (u64)desc.FaultPC;
+        FaultDescription desc {};
+        u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
+        desc.EmulatedFaultAddr = (u8*)ctx->far.x - curArea;
+        desc.FaultPC = (u8*)ctx->pc.x;
 
-        ARM_RestoreContext(integerRegisters);
+        u64 integerRegisters[33];
+        memcpy(integerRegisters, &ctx->cpu_gprs[0].x, 8*29);
+        integerRegisters[29] = ctx->fp.x;
+        integerRegisters[30] = ctx->lr.x;
+        integerRegisters[31] = ctx->sp.x;
+        integerRegisters[32] = ctx->pc.x;
+
+        if (FaultHandler(desc, *NDS::Current))
+        {
+            integerRegisters[32] = (u64)desc.FaultPC;
+
+            ARM_RestoreContext(integerRegisters);
+        }
     }
 
     HandleFault(ctx->pc.x, ctx->lr.x, ctx->fp.x, ctx->far.x, ctx->error_desc);
-}
-
 }
 
 #elif defined(_WIN32)
@@ -481,7 +489,7 @@ void ARMJIT_Memory::Mapping::Unmap(int region, melonDS::NDS& nds) noexcept
             {
                 u32 segmentSize = offset - segmentOffset;
                 Log(LogLevel::Debug, "unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
-                bool success = memory.UnmapFromRange(Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
+                bool success = nds.JIT.Memory.UnmapFromRange(Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
                 assert(success);
             }
 #endif
@@ -1001,6 +1009,9 @@ bool ARMJIT_Memory::IsFastMemSupported()
         ARMJIT_Global::DeInit();
 
         PageSize = RegularPageSize;
+#elif defined(__SWITCH__)
+        PageSize = RegularPageSize;
+        isSupported = true;
 #else
         PageSize = sysconf(_SC_PAGESIZE);
         isSupported = PageSize == RegularPageSize || PageSize == LargePageSize;
@@ -1028,6 +1039,8 @@ void ARMJIT_Memory::RegisterFaultHandler()
     {
         Log(LogLevel::Error, "Could not load new Windows virtual memory functions, fast memory is disabled.\n");
     }
+#elif defined(__SWITCH__)
+    // faults arrive through __libnx_exception_handler
 #else
     struct sigaction sa;
     sa.sa_handler = nullptr;
@@ -1055,6 +1068,7 @@ void ARMJIT_Memory::UnregisterFaultHandler()
         FreeLibrary(KernelBaseDll);
         KernelBaseDll = nullptr;
     }
+#elif defined(__SWITCH__)
 #else
     sigaction(SIGSEGV, &OldSaSegv, nullptr);
 #ifdef __APPLE__
@@ -1090,16 +1104,19 @@ ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
 {
     ARMJIT_Global::Init();
 #if defined(__SWITCH__)
-    MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
+    MemoryBaseHeap = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
     virtmemLock();
     MemoryBaseCodeMem = (u8*)virtmemFindCodeMemory(MemoryTotalSize, 0x1000);
 
-    bool succeded = R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem,
-        (u64)MemoryBase, MemoryTotalSize));
-    assert(succeded);
-    succeded = R_SUCCEEDED(svcSetProcessMemoryPermission(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem,
+    bool succeded = MemoryBaseHeap && R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem,
+        (u64)MemoryBaseHeap, MemoryTotalSize));
+    succeded = succeded && R_SUCCEEDED(svcSetProcessMemoryPermission(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem,
         MemoryTotalSize, Perm_Rw));
-    assert(succeded);
+    if (!succeded)
+    {
+        Log(LogLevel::Error, "fastmem: mapping the memory block as code memory failed\n");
+        abort();
+    }
 
     // 8 GB of address space, just don't ask...
     FastMem9Start = virtmemFindAslr(AddrSpaceSize, 0x1000);
@@ -1111,7 +1128,8 @@ ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
     FastMem7Reservation = virtmemAddReservation(FastMem7Start, AddrSpaceSize);
     virtmemUnlock();
 
-    u8* basePtr = MemoryBaseCodeMem;
+    // the heap pages are inaccessible while they back code memory, so everything goes through the alias
+    MemoryBase = MemoryBaseCodeMem;
 #elif defined(_WIN32)
     if (virtualAlloc2Ptr)
     {
@@ -1170,8 +1188,10 @@ ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
 
     mmap(MemoryBase, MemoryTotalSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, MemoryFile, 0);
 #endif
+#if !defined(__SWITCH__)
     FastMem9Start = MemoryBase+MemoryTotalSize;
     FastMem7Start = static_cast<u8*>(FastMem9Start)+AddrSpaceSize;
+#endif
 }
 
 ARMJIT_Memory::~ARMJIT_Memory() noexcept
@@ -1188,8 +1208,9 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
     FastMem7Reservation = nullptr;
     virtmemUnlock();
 
-    svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
-    free(MemoryBase);
+    svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBaseHeap, MemoryTotalSize);
+    free(MemoryBaseHeap);
+    MemoryBaseHeap = nullptr;
     MemoryBase = nullptr;
 #elif defined(_WIN32)
     if (virtualAlloc2Ptr)
@@ -1616,6 +1637,7 @@ u32 WifiRead32(u32 addr)
 template <typename T>
 void VRAMWrite(u32 addr, T val)
 {
+    NDS::Current->GPU.Sync2D();
     switch (addr & 0x00E00000)
     {
     case 0x00000000: NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
@@ -1628,6 +1650,7 @@ void VRAMWrite(u32 addr, T val)
 template <typename T>
 T VRAMRead(u32 addr)
 {
+    NDS::Current->GPU.Sync2D();
     switch (addr & 0x00E00000)
     {
     case 0x00000000: return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
@@ -1671,12 +1694,14 @@ static void GPU3D_Write32(u32 addr, u32 val) noexcept
 template<class T>
 static T GPU_ReadVRAM_ARM7(u32 addr) noexcept
 {
+    NDS::Current->GPU.Sync2D();
     return NDS::Current->GPU.ReadVRAM_ARM7<T>(addr);
 }
 
 template<class T>
 static void GPU_WriteVRAM_ARM7(u32 addr, T val) noexcept
 {
+    NDS::Current->GPU.Sync2D();
     NDS::Current->GPU.WriteVRAM_ARM7<T>(addr, val);
 }
 

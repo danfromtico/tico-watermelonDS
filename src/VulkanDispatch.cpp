@@ -3,11 +3,18 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#if !defined(__SWITCH__)
 #include <dlfcn.h>
+#endif
 #include <mutex>
 #include <utility>
 
 #include "Platform.h"
+
+#if defined(__SWITCH__)
+// NVK is a static ICD on the Switch: there is no loader library to open.
+extern "C" PFN_vkVoidFunction vk_icdGetInstanceProcAddr(VkInstance instance, const char* name);
+#endif
 
 #if MELONDS_HAS_ADRENOTOOLS
 #include <adrenotools/driver.h>
@@ -159,7 +166,11 @@ bool sameConfiguration(const DriverConfiguration& left, const DriverConfiguratio
 
 void* loadSymbol(const char* name)
 {
+#if defined(__SWITCH__)
+    return nullptr;
+#else
     return gVulkanHandle != nullptr ? dlsym(gVulkanHandle, name) : nullptr;
+#endif
 }
 
 bool isNullInstanceGlobalProc(const char* name)
@@ -318,8 +329,10 @@ void loadGlobalSymbols()
 
 void unloadDriver()
 {
+#if !defined(__SWITCH__)
     if (gVulkanHandle != nullptr)
         dlclose(gVulkanHandle);
+#endif
     gVulkanHandle = nullptr;
     gInitialized = false;
     gUsingCustomDriver = false;
@@ -969,6 +982,10 @@ bool Initialize()
     if (gInitialized)
         return vkGetInstanceProcAddr != nullptr;
 
+#if defined(__SWITCH__)
+    vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(&vk_icdGetInstanceProcAddr);
+    Platform::Log(Platform::LogLevel::Warn, "VulkanDriver: source=static NVK\n");
+#else
     const bool requestedCustomDriver = gConfiguration.UseCustomDriver
         && !gConfiguration.CustomDriverDir.empty()
         && !gConfiguration.CustomDriverName.empty()
@@ -1087,6 +1104,7 @@ bool Initialize()
         unloadDriver();
         return false;
     }
+#endif
 
     loadGlobalSymbols();
     if (vkCreateInstance == nullptr ||

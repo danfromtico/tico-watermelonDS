@@ -1235,6 +1235,22 @@ void SPU::Mix(u32 spucycles)
                     const u32 untilOverflow = 0x10000 - (timer & 0xFFFF);
                     step = std::min(step, untilOverflow);
                 };
+#if defined(MELONDS_SPU_CAPTURE_EDGE_STEPPING)
+                // Step from capture edge to capture edge instead of stopping at
+                // every channel edge. A capture unit only samples the mixer when
+                // its own timer overflows, and the value it must see is the one
+                // made of every channel edge strictly before that cycle. Running
+                // the channels up to one cycle short of the step gives exactly
+                // that state, at a fraction of the sub-steps.
+                if (Capture[0].Cnt & (1<<7)) includeTimer(Capture[0].Timer);
+                if (Capture[1].Cnt & (1<<7)) includeTimer(Capture[1].Timer);
+
+                if (step > 1)
+                {
+                    for (u32 i = 0; i < channelSamples.size(); i++)
+                        channelSamples[i] = Channels[i].DoRun(step - 1);
+                }
+#else
                 for (u32 i = 0; i < channelSamples.size(); i++)
                 {
                     if (Channels[i].Cnt & (1<<31))
@@ -1242,6 +1258,7 @@ void SPU::Mix(u32 spucycles)
                 }
                 if (Capture[0].Cnt & (1<<7)) includeTimer(Capture[0].Timer);
                 if (Capture[1].Cnt & (1<<7)) includeTimer(Capture[1].Timer);
+#endif
 
                 const bool edgeAdd01 = (Capture[0].Cnt & 0x81) == 0x81;
                 const bool edgeAdd23 = (Capture[1].Cnt & 0x81) == 0x81;
@@ -1262,8 +1279,13 @@ void SPU::Mix(u32 spucycles)
                 if (Capture[1].Cnt & (1<<7))
                     Capture[1].Run(step, capture1Value);
 
+#if defined(MELONDS_SPU_CAPTURE_EDGE_STEPPING)
+                for (u32 i = 0; i < channelSamples.size(); i++)
+                    channelSamples[i] = Channels[i].DoRun(1);
+#else
                 for (u32 i = 0; i < channelSamples.size(); i++)
                     channelSamples[i] = Channels[i].DoRun(step);
+#endif
                 cyclesLeft -= step;
             }
 

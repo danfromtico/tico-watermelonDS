@@ -40,11 +40,7 @@ add_library(core STATIC
     GPU3D.cpp
     GPU3D_AcceleratedFrontend.cpp
     GPU3D_Soft.cpp
-    GPU3D_Vulkan.cpp
-    VulkanDispatch.cpp
-    VulkanContext.cpp
     GPU3D_Texcache.cpp
-    GPU3D_TexcacheVulkan.cpp
     GPU3D_Texcache.h
     melonDLDI.h
     Mic.cpp
@@ -82,6 +78,15 @@ add_library(core STATIC
     xxhash/xxhash.c
 
     blip-buf/blip_buf.c)
+
+option(ENABLE_VULKANRENDERER "Enable Vulkan renderer" ON)
+if (ENABLE_VULKANRENDERER)
+    target_sources(core PRIVATE
+        GPU3D_Vulkan.cpp
+        VulkanDispatch.cpp
+        VulkanContext.cpp
+        GPU3D_TexcacheVulkan.cpp)
+endif()
 
 if (ENABLE_GDBSTUB)
     message(NOTICE "Enabling GDB stub")
